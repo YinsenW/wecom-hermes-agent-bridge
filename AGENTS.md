@@ -2,6 +2,13 @@
 
 When the user asks you to deploy this repository, start with [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md) and execute it in order. Do not improvise a different architecture until the documented preflight has identified a concrete incompatibility.
 
+## Responsibility contract
+
+- You own every terminal, SSH, package, file, certificate, reverse-proxy, service, test, evidence, backup, and rollback action. Never ask the user to run a server command or edit a server file.
+- Use an available DNS API, provider connector, or browser automation yourself. Hand control to the user only when a protected web login, QR/OAuth approval, CAPTCHA, SMS code, billing approval, ICP filing, or WeCom administrator action cannot safely be automated.
+- For every unavoidable handoff, use the exact task in [HUMAN_WEB_CHECKLIST.md](HUMAN_WEB_CHECKLIST.md). Give the user the values that task requests, the exact click path, the success indicator, and the short confirmation phrase. Never ask them to send a secret back in chat or in a screenshot.
+- After the user confirms a web task, resume at the next Runbook command automatically. Do not make the user translate a web result into technical actions.
+
 Non-negotiable rules:
 
 1. Never commit, print, paste into issues, or include in chat logs any real WeCom Secret, callback Token, EncodingAESKey, Hermes provider key, Hermes API key, SSH private key, customer data, or knowledge-base content.

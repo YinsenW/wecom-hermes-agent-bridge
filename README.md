@@ -1,6 +1,6 @@
 # WeCom Hermes Agent Bridge
 
-[English](#english-summary) · [Agent 零到上线手册](DEPLOYMENT_RUNBOOK.md) · [企业微信配置](docs/wecom-setup.md) · [故障排查](docs/troubleshooting.md) · [知识库](docs/knowledge-base.md)
+[English](#english-summary) · [Agent 零到上线手册](DEPLOYMENT_RUNBOOK.md) · [人工网页操作清单](HUMAN_WEB_CHECKLIST.md) · [企业微信配置](docs/wecom-setup.md) · [故障排查](docs/troubleshooting.md) · [知识库](docs/knowledge-base.md)
 
 把企业微信「微信客服」接到 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的开源桥接服务。它负责企业微信回调验签与解密、客服消息拉取、会话隔离、自动回复、失败转人工，以及轻量 Markdown 知识检索。
 
@@ -8,13 +8,15 @@
 
 ## 让 Agent 完成整套部署
 
-把仓库交给 Agent 后，让它先读取 [AGENTS.md](AGENTS.md)，再严格执行 [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)。手册覆盖空服务器预检、Hermes 安装和模型配置、固定 IP 与 DNS、Nginx/HTTPS、域名归属校验文件、ICP/管理员用户闸门、企业可信 IP、自建应用与客服账号授权、加密回调、演练测试、正式启用、共享 443 分流及回滚。
+把仓库交给 Agent 后，让它先读取 [AGENTS.md](AGENTS.md)，再严格执行 [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)。Agent 负责全部 SSH、命令、文件、证书、服务、验证和回滚，并应优先自行使用 DNS API 或浏览器自动化。人只处理无法自动化的网页登录、扫码/OAuth、验证码、管理员确认、备案和最终上线批准；这些动作集中在 [人工网页操作清单](HUMAN_WEB_CHECKLIST.md)，不会要求人执行服务器命令。
 
 可直接给 Agent 的提示词：
 
 ```text
 请先完整阅读 AGENTS.md 和 DEPLOYMENT_RUNBOOK.md，然后按阶段部署。
-每个检查点都要给出证据；任何秘密、管理员登录、备案、付款、验证码或 80/443 变更必须先找我确认。
+你负责执行所有 SSH、命令、文件、DNS API、证书、服务、测试和回滚，不要让我运行服务器命令。
+只有遇到无法自动化的网页登录、扫码/OAuth、验证码、管理员确认或备案时，才按 HUMAN_WEB_CHECKLIST.md 给我准确的点击路径、填写值、成功标志和确认短句。
+每个检查点都要给出脱敏证据；任何秘密、付款或 80/443 变更必须先找我确认。
 在我明确批准前保持 BRIDGE_DRY_RUN=true，不得对真实客户自动回复。
 ```
 
