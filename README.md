@@ -1,10 +1,22 @@
 # WeCom Hermes Agent Bridge
 
-[English](#english-summary) · [部署指南](docs/deployment.md) · [企业微信配置](docs/wecom-setup.md) · [知识库](docs/knowledge-base.md)
+[English](#english-summary) · [Agent 零到上线手册](DEPLOYMENT_RUNBOOK.md) · [企业微信配置](docs/wecom-setup.md) · [故障排查](docs/troubleshooting.md) · [知识库](docs/knowledge-base.md)
 
 把企业微信「微信客服」接到 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的开源桥接服务。它负责企业微信回调验签与解密、客服消息拉取、会话隔离、自动回复、失败转人工，以及轻量 Markdown 知识检索。
 
 > 项目默认 `BRIDGE_DRY_RUN=true`，不会向真实客户发送消息。完成测试与业务审核后再显式关闭演练模式。
+
+## 让 Agent 完成整套部署
+
+把仓库交给 Agent 后，让它先读取 [AGENTS.md](AGENTS.md)，再严格执行 [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)。手册覆盖空服务器预检、Hermes 安装和模型配置、固定 IP 与 DNS、Nginx/HTTPS、域名归属校验文件、ICP/管理员用户闸门、企业可信 IP、自建应用与客服账号授权、加密回调、演练测试、正式启用、共享 443 分流及回滚。
+
+可直接给 Agent 的提示词：
+
+```text
+请先完整阅读 AGENTS.md 和 DEPLOYMENT_RUNBOOK.md，然后按阶段部署。
+每个检查点都要给出证据；任何秘密、管理员登录、备案、付款、验证码或 80/443 变更必须先找我确认。
+在我明确批准前保持 BRIDGE_DRY_RUN=true，不得对真实客户自动回复。
+```
 
 ## 能做什么
 
@@ -66,7 +78,7 @@ BRIDGE_DRY_RUN=true
 4. 发送测试消息，确认 `/health` 中待处理数量归零且没有异常。
 5. 完成内容、转人工和失败场景测试后，把 `BRIDGE_DRY_RUN` 改为 `false`。
 
-服务器部署见 [部署指南](docs/deployment.md)，后台逐项配置见 [企业微信配置](docs/wecom-setup.md)。
+完整上线使用 [Agent 执行手册](DEPLOYMENT_RUNBOOK.md)，简版服务器说明见 [部署指南](docs/deployment.md)，后台逐项配置见 [企业微信配置](docs/wecom-setup.md)。
 
 ## 配置
 

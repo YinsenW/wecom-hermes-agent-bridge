@@ -1,6 +1,7 @@
 .DS_Store
 .env
 .env.*
+*.env
 !.env.example
 .venv/
 __pycache__/
@@ -20,6 +21,7 @@ data/
 *.key
 *_ed25519
 known_hosts
+WW_verify_*.txt
 work/
 private/
 secrets/

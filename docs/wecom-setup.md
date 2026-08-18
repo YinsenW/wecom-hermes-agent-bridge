@@ -10,7 +10,7 @@
 - 应用 Secret
 - 需要管理的客服账号 `open_kfid`
 
-在微信客服的「可调用接口的应用」中选择这个自建应用，并把目标客服账号分配给它。应用需要配置可信 IP；生产环境应填写服务器固定出口 IP。
+在微信客服的「可调用接口的应用」中选择这个自建应用，并把目标客服账号分配给它。应用需要配置可信 IP；生产环境应填写服务器固定出口 IP。可用 [账号列表脚本](../scripts/list-kf-accounts.py) 调用官方 `kf/account/list` 接口确认应用实际能看到哪些 `open_kfid`。
 
 ## 2. 准备回调地址
 
@@ -37,8 +37,16 @@ https://wecom-kf.example.com/callbacks/wecom/kf
 ## 4. 配置可信域名与可信 IP
 
 - 可信域名填写域名，不带协议和路径，例如 `wecom-kf.example.com`。
-- 按后台要求完成域名归属校验。
+- 点击“申请校验域名”后，后台会下载 `WW_verify_*.txt`。保持文件名和内容不变，把它部署到网站根路径，确保 `https://域名/WW_verify_*.txt` 返回 200 和原始内容，再回后台确认。
+- 域名归属校验不等于 ICP 备案。若后台显示备案主体与企业主体关系要求，必须先按提示完成，不能用反向代理或脚本绕过。
 - 企业可信 IP 填服务器固定出口 IP，不填本地电脑的临时公网 IP。
+
+仓库提供了验证文件安装命令：
+
+```bash
+sudo ./scripts/install-domain-verification.sh /tmp/WW_verify_XXXXXXXX.txt
+./scripts/verify-deployment.sh wecom-kf.example.com 203.0.113.10 /tmp/WW_verify_XXXXXXXX.txt
+```
 
 ## 5. 联调顺序
 

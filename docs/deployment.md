@@ -1,5 +1,7 @@
 # 服务器部署
 
+需要从空服务器一直完成 DNS、Hermes、HTTPS、企业微信域名归属验证、后台授权和端到端验收时，请使用根目录的 [Agent 执行手册](../DEPLOYMENT_RUNBOOK.md)。本页仅保留熟悉本项目人员的简版操作。
+
 下面以 Debian/Ubuntu、systemd 和 Nginx 为例。所有域名、路径、用户和密钥都是示例。
 
 ## 1. 安装代码

@@ -11,7 +11,7 @@ fi
 .venv/bin/python -m pytest
 .venv/bin/python -m compileall -q src
 
-forbidden_pattern='BEGIN (OPENSSH|RSA|EC) PRIVATE KEY|/Users/|45\.62\.119\.61|cherry-ai\.com|千彗科技|xinming'
+forbidden_pattern='BEGIN (OPENSSH|RSA|EC) PRIVATE KEY|/Users/|WECOM_(APP_SECRET|CALLBACK_TOKEN|CALLBACK_AES_KEY)=[A-Za-z0-9+/]{40,}|HERMES_API_KEY=[A-Za-z0-9_-]{40,}'
 if rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!uv.lock' --glob '!scripts/check.sh' "$forbidden_pattern" .; then
   echo "Potential private data found; review before publishing." >&2
   exit 1
