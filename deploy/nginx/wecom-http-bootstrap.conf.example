@@ -1,0 +1,18 @@
+server {
+    listen 80;
+    server_name wecom-kf.example.com;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location ~ ^/WW_verify_[A-Za-z0-9]+\.txt$ {
+        root /var/www/wecom-domain-verification;
+        try_files $uri =404;
+        default_type text/plain;
+    }
+
+    location / {
+        return 404;
+    }
+}

@@ -1,0 +1,34 @@
+[project]
+name = "wecom-hermes-agent-bridge"
+version = "0.1.0"
+description = "A production-oriented bridge between WeCom Customer Service and Hermes Agent"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "cryptography>=45,<47",
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.25,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wecom_hermes_bridge"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[project.urls]
+Homepage = "https://github.com/YinsenW/wecom-hermes-agent-bridge"
+Repository = "https://github.com/YinsenW/wecom-hermes-agent-bridge"
+Issues = "https://github.com/YinsenW/wecom-hermes-agent-bridge/issues"

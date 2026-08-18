@@ -1,0 +1,48 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen --dev
+      - run: uv run pytest
+      - run: uv run python -m compileall -q src
+
+  proxy-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y nginx haproxy
+      - name: Render templates
+        run: |
+          python3 scripts/render-domain-config.py --template deploy/nginx/wecom-http-bootstrap.conf.example --domain wecom.test.example --output /tmp/nginx-bootstrap.conf
+          python3 scripts/render-domain-config.py --template deploy/nginx/wecom-hermes-agent-bridge.conf.example --domain wecom.test.example --output /tmp/nginx-exclusive.conf
+          python3 scripts/render-domain-config.py --template deploy/nginx/wecom-hermes-agent-bridge-behind-haproxy.conf.example --domain wecom.test.example --output /tmp/nginx-shared.conf
+          python3 scripts/render-domain-config.py --template deploy/haproxy/haproxy-sni-router.cfg.example --domain wecom.test.example --output /tmp/haproxy.cfg
+      - name: Create disposable TLS certificate
+        run: |
+          sudo mkdir -p /etc/letsencrypt/live/wecom.test.example
+          sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=wecom.test.example' -keyout /etc/letsencrypt/live/wecom.test.example/privkey.pem -out /etc/letsencrypt/live/wecom.test.example/fullchain.pem
+      - name: Validate Nginx and HAProxy syntax
+        run: |
+          printf 'events {}\nhttp { include /tmp/nginx-bootstrap.conf; }\n' > /tmp/nginx-main.conf
+          sudo nginx -t -c /tmp/nginx-main.conf
+          printf 'events {}\nhttp { include /tmp/nginx-exclusive.conf; }\n' > /tmp/nginx-main.conf
+          sudo nginx -t -c /tmp/nginx-main.conf
+          printf 'events {}\nhttp { include /tmp/nginx-shared.conf; }\n' > /tmp/nginx-main.conf
+          sudo nginx -t -c /tmp/nginx-main.conf
+          sudo haproxy -c -f /tmp/haproxy.cfg
