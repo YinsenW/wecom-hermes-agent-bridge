@@ -210,6 +210,14 @@ class SQLiteStore:
             row = connection.execute("SELECT COUNT(*) FROM inbound_message").fetchone()
         return int(row[0])
 
+    def inbound_processed(self, msgid: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT processed_at FROM inbound_message WHERE msgid = ?",
+                (msgid,),
+            ).fetchone()
+        return row is not None and row[0] is not None
+
     def next_pending_customer_message(self) -> InboundMessage | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -397,6 +405,14 @@ class SQLiteStore:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT status FROM outbound_message WHERE msgid = ?",
+                (msgid,),
+            ).fetchone()
+        return None if row is None else str(row[0])
+
+    def outbound_content(self, msgid: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT content FROM outbound_message WHERE msgid = ?",
                 (msgid,),
             ).fetchone()
         return None if row is None else str(row[0])

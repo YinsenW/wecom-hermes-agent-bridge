@@ -89,3 +89,67 @@ async def test_expired_callback_token_is_not_sent(tmp_path) -> None:
     await MessageSyncWorker(store=store, wecom=client).process_trigger(trigger)
 
     assert client.calls[0]["pull_token"] is None
+
+
+@pytest.mark.asyncio
+async def test_transient_page_failure_resumes_durable_cursor_and_deduplicates(
+    tmp_path,
+) -> None:
+    class TransientClient(FakeSyncClient):
+        async def sync_messages(self, **kwargs):
+            if len(self.calls) == 1:
+                self.calls.append(kwargs)
+                raise RuntimeError("synthetic page failure")
+            return await super().sync_messages(**kwargs)
+
+    store = _store(tmp_path / "bridge.db")
+    store.enqueue_callback_trigger("wk-one", "synthetic-pull-token")
+    store.set_state("sync_cursor:wk-other", "other-cursor")
+    trigger = store.next_pending_trigger()
+    assert trigger is not None
+    first = {
+        "msgid": "first",
+        "open_kfid": "wk-one",
+        "external_userid": "wm-user",
+        "send_time": 100,
+        "origin": 3,
+        "msgtype": "text",
+        "text": {"content": "hello"},
+    }
+    second = {**first, "msgid": "second"}
+    client = TransientClient(
+        [
+            SyncPage(messages=[first], next_cursor="cursor-1", has_more=True),
+            SyncPage(messages=[first, second], next_cursor="cursor-2", has_more=False),
+        ]
+    )
+    with pytest.raises(RuntimeError, match="synthetic page failure"):
+        await MessageSyncWorker(store=store, wecom=client).process_trigger(trigger)
+    assert store.inbound_message_count() == 1
+    assert store.get_state("sync_cursor:wk-one") == "cursor-1"
+    assert store.pending_trigger_count() == 1
+
+    # Reopen both worker and store: the failed page must resume from cursor-1.
+    reopened = _store(tmp_path / "bridge.db")
+    pending = reopened.next_pending_trigger()
+    assert pending is not None and pending.id == trigger.id
+    inserted = await MessageSyncWorker(store=reopened, wecom=client).process_trigger(pending)
+    assert inserted == 1
+    assert reopened.inbound_message_count() == 2
+    assert [call["cursor"] for call in client.calls] == [None, "cursor-1", "cursor-1"]
+    assert reopened.get_state("sync_cursor:wk-one") == "cursor-2"
+    assert reopened.get_state("sync_cursor:wk-other") == "other-cursor"
+    assert reopened.pending_trigger_count() == 0
+
+    # A duplicate callback and page do not reinsert either customer message.
+    reopened.enqueue_callback_trigger("wk-one", "synthetic-pull-token")
+    duplicate_trigger = reopened.next_pending_trigger()
+    assert duplicate_trigger is not None
+    duplicate_client = FakeSyncClient(
+        [SyncPage(messages=[first, second], next_cursor="cursor-2", has_more=False)]
+    )
+    duplicate_worker = MessageSyncWorker(store=reopened, wecom=duplicate_client)
+    assert await duplicate_worker.process_trigger(duplicate_trigger) == 0
+    assert duplicate_client.calls[0]["cursor"] == "cursor-2"
+    assert reopened.inbound_message_count() == 2
+    assert reopened.pending_trigger_count() == 0

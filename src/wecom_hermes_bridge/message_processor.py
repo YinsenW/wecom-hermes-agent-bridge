@@ -117,10 +117,50 @@ class CustomerMessageProcessor:
 
         lock_key = f"{message.open_kfid}:{message.external_userid}"
         async with self._locks[lock_key]:
+            if self._store.inbound_processed(message.msgid):
+                return
             conversation = self._store.get_or_create_conversation(
                 open_kfid=message.open_kfid,
                 external_userid=message.external_userid,
             )
+            if self._store.outbound_status(outbound_msgid("reply", message.msgid)) in {
+                "sent",
+                "dry_run",
+            }:
+                self._store.mark_inbound_processed(message.msgid)
+                return
+            if self._store.outbound_status(outbound_msgid("handoff", message.msgid)) in {
+                "sent",
+                "dry_run",
+            }:
+                # Outbound completion can survive a crash before the local lock.
+                # Recover it only for pending inbound, never a historic replay.
+                if not conversation.human_locked:
+                    self._store.set_conversation_human_locked(
+                        open_kfid=message.open_kfid,
+                        external_userid=message.external_userid,
+                        locked=True,
+                    )
+                self._store.mark_inbound_processed(message.msgid)
+                return
+
+            service_state = None
+            if not self._dry_run:
+                service_state = await self._wecom.get_service_state(
+                    open_kfid=message.open_kfid,
+                    external_userid=message.external_userid,
+                )
+                if self._skip_unavailable_service(message, service_state):
+                    return
+                if conversation.human_locked and service_state.state in {0, 1}:
+                    conversation = self._store.restart_conversation(
+                        open_kfid=message.open_kfid,
+                        external_userid=message.external_userid,
+                    )
+            elif conversation.human_locked:
+                self._store.mark_inbound_processed(message.msgid, error="human_locked")
+                return
+
             if message.msgtype != "text":
                 await self._handoff(message, reason="unsupported_message_type")
                 return
@@ -132,42 +172,18 @@ class CustomerMessageProcessor:
             if any(keyword in user_text for keyword in HANDOFF_KEYWORDS):
                 await self._handoff(message, reason="customer_requested_human")
                 return
-            if self._store.outbound_status(outbound_msgid("reply", message.msgid)) in {
-                "sent",
-                "dry_run",
-            }:
-                self._store.mark_inbound_processed(message.msgid)
-                return
-
-            if not self._dry_run:
-                service_state = await self._wecom.get_service_state(
+            if service_state is not None and service_state.state == 0:
+                await self._wecom.transition_service_state(
                     open_kfid=message.open_kfid,
                     external_userid=message.external_userid,
+                    target_state=1,
                 )
-                if conversation.human_locked and service_state.state in {0, 1}:
-                    conversation = self._store.restart_conversation(
-                        open_kfid=message.open_kfid,
-                        external_userid=message.external_userid,
-                    )
-                if service_state.state in {2, 3}:
-                    self._store.set_conversation_human_locked(
-                        open_kfid=message.open_kfid,
-                        external_userid=message.external_userid,
-                        locked=True,
-                    )
-                    self._store.mark_inbound_processed(message.msgid, error="human_service")
-                    return
-                if service_state.state == 4:
-                    self._store.mark_inbound_processed(message.msgid, error="inactive_session")
-                    return
-                if service_state.state == 0:
-                    await self._wecom.transition_service_state(
-                        open_kfid=message.open_kfid,
-                        external_userid=message.external_userid,
-                        target_state=1,
-                    )
-            elif conversation.human_locked:
-                self._store.mark_inbound_processed(message.msgid, error="human_locked")
+
+            prepared_reply = self._store.outbound_content(
+                outbound_msgid("reply", message.msgid)
+            )
+            if prepared_reply is not None:
+                await self._send_normal_reply(message, prepared_reply)
                 return
 
             external_session_key = (
@@ -201,6 +217,23 @@ class CustomerMessageProcessor:
 
             await self._send_normal_reply(message, reply)
 
+    def _skip_unavailable_service(
+        self, message: InboundMessage, service_state: ServiceState
+    ) -> bool:
+        assert message.open_kfid and message.external_userid
+        if service_state.state in {2, 3}:
+            self._store.set_conversation_human_locked(
+                open_kfid=message.open_kfid,
+                external_userid=message.external_userid,
+                locked=True,
+            )
+            self._store.mark_inbound_processed(message.msgid, error="human_service")
+            return True
+        if service_state.state == 4:
+            self._store.mark_inbound_processed(message.msgid, error="inactive_session")
+            return True
+        return False
+
     async def _send_normal_reply(self, message: InboundMessage, content: str) -> None:
         assert message.open_kfid and message.external_userid
         msgid = outbound_msgid("reply", message.msgid)
@@ -219,6 +252,12 @@ class CustomerMessageProcessor:
                 content=content,
                 status="pending",
             )
+            service_state = await self._wecom.get_service_state(
+                open_kfid=message.open_kfid,
+                external_userid=message.external_userid,
+            )
+            if self._skip_unavailable_service(message, service_state):
+                return
             await self._wecom.send_text(
                 open_kfid=message.open_kfid,
                 external_userid=message.external_userid,
@@ -246,6 +285,12 @@ class CustomerMessageProcessor:
             if self._dry_run:
                 status = "dry_run"
             else:
+                service_state = await self._wecom.get_service_state(
+                    open_kfid=message.open_kfid,
+                    external_userid=message.external_userid,
+                )
+                if self._skip_unavailable_service(message, service_state):
+                    return
                 code = await self._wecom.transition_service_state(
                     open_kfid=message.open_kfid,
                     external_userid=message.external_userid,
